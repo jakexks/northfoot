@@ -1,0 +1,124 @@
+/*
+Copyright (C) 2022 Jake Sanders
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+syntax = "proto3";
+package api.mgmt.v1;
+option go_package = "github.com/jakexks/northfoot/api/mgmt/v1;mgmtv1";
+
+import "google/protobuf/empty.proto";
+
+enum SignerType {
+    SIGNER_TYPE_UNSPECIFIED = 0;
+    SIGNER_TYPE_INMEM = 1;
+    SIGNER_TYPE_FILE = 2;
+    SIGNER_TYPE_HSM = 3;
+    SIGNER_TYPE_REMOTE = 4;
+}
+
+message Signer {
+    optional int64 id = 1;
+    optional string name = 2;
+    optional string description = 3;
+    SignerType type = 4;
+    oneof signer_config {
+        SignerInMemConfig in_mem = 5;
+        SignerFileConfig file = 6;
+        SignerHSMConfig hsm = 7;
+        SignerRemoteConfig remote = 8;
+    }
+}
+
+enum PrivateKeyType {
+    PRIVATE_KEY_TYPE_UNSPECIFIED = 0;
+    PRIVATE_KEY_TYPE_RSA = 1;
+    PRIVATE_KEY_TYPE_EC = 2;
+    PRIVATE_KEY_TYPE_ED25519 = 3;
+}
+
+message SignerInMemConfig {
+    // key type to generate in memory
+    PrivateKeyType key = 1;
+    optional int64 key_size = 2;
+}
+
+message SignerFileConfig {
+    string tls_cert_file_path = 1;
+    string tls_key_file_path = 2;
+}
+
+message SignerHSMConfig {
+    string hsm_library_path = 1;
+    optional string hsm_token_serial = 2;
+    optional string hsm_token_label = 3;
+    optional string hsm_token_pin = 4;
+}
+
+enum RemoteType {
+    REMOTE_TYPE_UNSPECIFIED = 0;
+    // Use the another already available northfoot to sign a CSR
+    REMOTE_TYPE_NORTHFOOT = 1;
+    // Use a PEM cert / key received verbatim over https
+    REMOTE_TYPE_VERBATIM_HTTPS = 2;
+}
+
+message RemoteNorthfootConfig {
+    string endpoint = 1;
+}
+
+message RemoteVerbatimHttpsConfig {
+    string cert_url = 1;
+    string key_url = 2;
+}
+
+message SignerRemoteConfig {
+    RemoteType remote_type = 1;
+    oneof remote_config {
+        RemoteNorthfootConfig northfoot = 2;
+        RemoteVerbatimHttpsConfig verbatim_https = 3;
+    }
+}
+
+message GetSignerRequest {
+    int64 id = 1;
+}
+
+message GetSignerResponse {
+    Signer signer = 1;
+}
+
+message SignerList {
+    repeated Signer signers = 1;
+}
+
+message ListSignersResponse {
+  SignerList signers = 1;
+}
+
+message CreateSignerRequest {
+    Signer signer = 1;
+}
+
+message DeleteSignerRequest {
+    int64 id = 1;
+}
+
+service ManagementService {
+    rpc GetSigner(GetSignerRequest) returns (GetSignerResponse);
+    rpc ListSigners(google.protobuf.Empty) returns (ListSignersResponse);
+    rpc CreateSigner(CreateSignerRequest) returns (google.protobuf.Empty);
+    rpc DeleteSigner(DeleteSignerRequest) returns (google.protobuf.Empty);
+}
